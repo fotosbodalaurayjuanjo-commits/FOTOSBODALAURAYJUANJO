@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Álbum de la boda</title>
+<style>
+  :root {
+    --tinta: #1f2a2e;
+    --eucalipto: #c9d6c3;
+    --suave: #e7eee2;
+    --papel: #fffefb;
+    --peonia: #c2335a;
+    --musgo: #4f6648;
+  }
+  * { box-sizing: border-box; }
+  html { color-scheme: light; }
+  body {
+    margin: 0;
+    background: var(--eucalipto);
+    color: var(--tinta);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  }
+  header, main { max-width: 640px; margin: 0 auto; }
+  header { padding: 28px 20px 4px; }
+  h1 {
+    font: italic 400 clamp(2.2rem, 10vw, 3.2rem)/1.05 Georgia, "Times New Roman", serif;
+    margin: 0 0 10px;
+  }
+  .lead { margin: 0 0 18px; max-width: 36ch; }
+  .aviso {
+    background: var(--tinta); color: #fff; padding: 8px 12px; border-radius: 8px;
+    font-size: .9rem; margin: 0 0 16px;
+  }
+  .campo label { display: block; font-weight: 600; margin-bottom: 4px; }
+  .campo input {
+    width: 100%; padding: 12px 14px; font: inherit; color: inherit;
+    background: var(--papel); border: 2px solid var(--tinta); border-radius: 10px;
+  }
+  .campo small { display: block; margin-top: 4px; color: #3b4a4f; }
+  #progreso { margin: 18px 20px 0; font-weight: 600; }
+
+  #retos {
+    display: grid; grid-template-columns: repeat(2, 1fr);
+    gap: 22px 16px; padding: 16px 16px 48px;
+  }
+  .card {
+    position: relative; display: block; width: 100%; padding: 8px 8px 0;
+    background: var(--papel); color: inherit; font: inherit; text-align: center;
+    border: 0; border-radius: 3px; cursor: pointer;
+    box-shadow: 0 3px 0 rgba(31, 42, 46, .22);
+  }
+  .card:nth-child(odd)  { transform: rotate(-1.4deg); }
+  .card:nth-child(even) { transform: rotate(1.1deg); }
+  .foto {
+    aspect-ratio: 1; display: grid; place-items: center; overflow: hidden;
+    background: var(--suave); font-size: 3.2rem;
+  }
+  .foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .pie {
+    padding: 10px 4px 14px; min-height: 4.4em;
+    font: italic 400 1.02rem/1.25 Georgia, "Times New Roman", serif;
+  }
+  .card.hecho::after {
+    content: "✓"; position: absolute; top: -8px; right: -8px;
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--peonia); color: #fff; font: 700 1rem/30px system-ui;
+  }
+  button:focus-visible, input:focus-visible {
+    outline: 3px solid var(--peonia); outline-offset: 3px;
+  }
+
+  dialog {
+    border: 0; padding: 0; width: min(100%, 520px); max-width: 100%;
+    margin: auto auto 0; border-radius: 20px 20px 0 0;
+    background: var(--papel); color: var(--tinta);
+  }
+  dialog::backdrop { background: rgba(31, 42, 46, .6); }
+  .hoja { padding: 22px 20px calc(22px + env(safe-area-inset-bottom)); }
+  .hoja h2 {
+    font: italic 400 1.7rem/1.15 Georgia, "Times New Roman", serif; margin: 6px 0 8px;
+  }
+  .hoja .emoji { font-size: 2.6rem; line-height: 1; }
+  .hoja p { margin: 0 0 16px; }
+  .cerrar {
+    float: right; background: none; border: 0; font: inherit; font-weight: 600;
+    padding: 6px 4px; color: var(--musgo); cursor: pointer;
+  }
+  .btn {
+    display: block; width: 100%; padding: 14px; margin-top: 10px;
+    border: 2px solid var(--tinta); border-radius: 12px; background: transparent;
+    color: var(--tinta); font: 600 1rem system-ui, sans-serif; cursor: pointer;
+  }
+  .btn.principal { background: var(--peonia); border-color: var(--peonia); color: #fff; }
+  .btn:disabled { opacity: .55; cursor: default; }
+  #vista { display: none; width: 100%; max-height: 42vh; object-fit: contain;
+           background: var(--suave); border-radius: 10px; margin-bottom: 6px; }
+  #estado { min-height: 1.5em; margin: 12px 0 0; font-weight: 600; }
+  #estado.error { color: var(--peonia); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="titulo">Nuestra boda</h1>
+  <p class="lead" id="subtitulo">Elige un reto, hazle una foto y llegará directa a nuestro álbum.</p>
+  <p class="aviso" id="aviso-prueba" hidden>Modo de prueba: las fotos todavía no se guardan en ningún sitio.</p>
+  <div class="campo">
+    <label for="nombre">Tu nombre</label>
+    <input id="nombre" type="text" maxlength="40" autocomplete="given-name" placeholder="Por ejemplo, Lucía">
+    <small>Opcional. Así sabremos quién hizo cada foto.</small>
+  </div>
+  <p id="progreso"></p>
+</header>
+
+<main>
+  <div id="retos" aria-live="polite"></div>
+</main>
+
+<dialog id="dlg" aria-labelledby="dlg-titulo">
+  <div class="hoja">
+    <button class="cerrar" id="cerrar" type="button">Cerrar</button>
+    <div class="emoji" id="dlg-emoji" aria-hidden="true"></div>
+    <h2 id="dlg-titulo"></h2>
+    <p id="dlg-desc"></p>
+    <img id="vista" alt="Vista previa de tu foto">
+    <button class="btn" id="btn-camara" type="button">Hacer foto</button>
+    <button class="btn" id="btn-galeria" type="button">Elegir de la galería</button>
+    <button class="btn principal" id="btn-enviar" type="button" hidden>Enviar foto</button>
+    <p id="estado" role="status" aria-live="polite"></p>
+  </div>
+</dialog>
+
+<input id="in-camara" type="file" accept="image/*" capture hidden>
+<input id="in-galeria" type="file" accept="image/*" hidden>
+
+<script>
+// ============ CONFIGURACIÓN (lo único que tienes que tocar) ============
+const CONFIG = {
+  // Pega aquí la URL de tu aplicación web de Apps Script (termina en /exec)
+  APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbzc3lmg-coFNHuFYCv-VN-aD8sypnND-5z9Mhz7ibp9DzcxmHdMExVPEazW_daSt9Qo/exec',
+  TITULO: 'Nuestra boda',
+  SUBTITULO: 'Elige un reto, hazle una foto y llegará directa a nuestro álbum.',
+  MAX_LADO: 1600,   // tamaño máximo de la foto en píxeles (lado más largo)
+  CALIDAD: 0.8      // calidad JPEG, de 0 a 1
+};
+
+// Retos de ejemplo: solo se usan en modo de prueba o si no hay conexión
+// y nunca se llegaron a cargar los de tu hoja de cálculo.
+const RETOS_RESPALDO = [
+  { emoji: '👰', titulo: 'Selfie con los novios',            descripcion: 'Aprovecha cuando estén libres, ¡pero no tardes!' },
+  { emoji: '🥂', titulo: 'Brinda con alguien que no conocías', descripcion: 'Presentaos, chocad las copas y foto.' },
+  { emoji: '💃', titulo: 'Tu mejor paso de baile',           descripcion: 'Que lo haga otra persona por ti, o tú misma.' },
+  { emoji: '🌸', titulo: 'Un detalle bonito de la decoración', descripcion: 'Busca el rincón que más te guste.' },
+  { emoji: '🍰', titulo: 'Lo más rico de la mesa',           descripcion: 'El plato, el postre o la copa que te conquiste.' },
+  { emoji: '🧑‍🤝‍🧑', titulo: 'Foto de grupo con tu mesa',       descripcion: 'Que salga todo el mundo, incluido quien la hace.' }
+];
+// ======================================================================
+
+const $ = s => document.querySelector(s);
+const lsGet = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? d; } catch { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+const modoPrueba = !/^https:\/\/script\.google\.com\/.+\/exec/.test(CONFIG.APPS_SCRIPT_URL);
+let retos = [];
+let hechos = lsGet('hechos', {});   // título del reto -> miniatura de la foto enviada
+let actual = null;                   // reto abierto
+let foto = null;                     // { blob, thumb }
+
+$('#titulo').textContent = CONFIG.TITULO;
+$('#subtitulo').textContent = CONFIG.SUBTITULO;
+document.title = CONFIG.TITULO;
+$('#aviso-prueba').hidden = !modoPrueba;
+$('#nombre').value = lsGet('nombre', '');
+$('#nombre').addEventListener('input', e => lsSet('nombre', e.target.value.trim()));
+
+// ---------- Cargar y pintar retos ----------
+async function cargarRetos() {
+  if (modoPrueba) return RETOS_RESPALDO;
+  try {
+    const r = await fetch(CONFIG.APPS_SCRIPT_URL + '?t=' + Date.now());
+    const d = await r.json();
+    if (!d.ok || !d.retos.length) throw new Error(d.error || 'Sin retos');
+    lsSet('retos', d.retos);
+    return d.retos;
+  } catch (e) {
+    return lsGet('retos', RETOS_RESPALDO);
+  }
+}
+
+function pintar() {
+  const cont = $('#retos');
+  cont.replaceChildren();
+  retos.forEach(r => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'card' + (hechos[r.titulo] ? ' hecho' : '');
+    const f = document.createElement('div');
+    f.className = 'foto';
+    if (hechos[r.titulo]) {
+      const img = new Image();
+      img.src = hechos[r.titulo];
+      img.alt = 'Tu foto del reto ' + r.titulo;
+      f.append(img);
+    } else {
+      f.textContent = r.emoji;
+    }
+    const p = document.createElement('div');
+    p.className = 'pie';
+    p.textContent = r.titulo;
+    b.append(f, p);
+    b.addEventListener('click', () => abrir(r));
+    cont.append(b);
+  });
+  const n = retos.filter(r => hechos[r.titulo]).length;
+  $('#progreso').textContent = n ? `Retos hechos: ${n} de ${retos.length}` : `${retos.length} retos esperándote`;
+}
+
+// ---------- Hoja del reto ----------
+const dlg = $('#dlg');
+
+function estado(texto, error = false) {
+  const e = $('#estado');
+  e.textContent = texto;
+  e.className = error ? 'error' : '';
+}
+
+function reiniciarHoja() {
+  if (foto && foto.url) URL.revokeObjectURL(foto.url);
+  foto = null;
+  $('#vista').style.display = 'none';
+  $('#vista').removeAttribute('src');
+  $('#btn-enviar').hidden = true;
+  $('#btn-enviar').disabled = false;
+  $('#btn-camara').textContent = 'Hacer foto';
+  estado('');
+}
+
+function abrir(reto) {
+  actual = reto;
+  reiniciarHoja();
+  $('#dlg-emoji').textContent = reto.emoji;
+  $('#dlg-titulo').textContent = reto.titulo;
+  $('#dlg-desc').textContent = reto.descripcion;
+  dlg.showModal();
+}
+
+$('#cerrar').addEventListener('click', () => dlg.close());
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+dlg.addEventListener('close', reiniciarHoja);
+$('#btn-camara').addEventListener('click', () => $('#in-camara').click());
+$('#btn-galeria').addEventListener('click', () => $('#in-galeria').click());
+$('#in-camara').addEventListener('change', elegida);
+$('#in-galeria').addEventListener('change', elegida);
+
+// ---------- Procesar foto ----------
+function cargarImg(file) {
+  return new Promise((ok, ko) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); ok(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); ko(new Error('No se pudo leer la imagen')); };
+    img.src = url;
+  });
+}
+
+function aJpeg(fuente, ancho, alto, maxLado, calidad) {
+  const esc = Math.min(1, maxLado / Math.max(ancho, alto));
+  const c = document.createElement('canvas');
+  c.width = Math.round(ancho * esc);
+  c.height = Math.round(alto * esc);
+  c.getContext('2d').drawImage(fuente, 0, 0, c.width, c.height);
+  return c;
+}
+
+async function comprimir(file) {
+  let fuente;
+  try { fuente = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+  catch { fuente = await cargarImg(file); }
+  const w = fuente.width || fuente.naturalWidth;
+  const h = fuente.height || fuente.naturalHeight;
+  const grande = aJpeg(fuente, w, h, CONFIG.MAX_LADO);
+  const peque = aJpeg(fuente, w, h, 240);
+  const blob = await new Promise(r => grande.toBlob(r, 'image/jpeg', CONFIG.CALIDAD));
+  if (!blob) throw new Error('No se pudo comprimir');
+  return { blob, thumb: peque.toDataURL('image/jpeg', 0.7), url: URL.createObjectURL(blob) };
+}
+
+async function elegida(e) {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  estado('Preparando la foto…');
+  try {
+    if (foto && foto.url) URL.revokeObjectURL(foto.url);
+    foto = await comprimir(f);
+    const v = $('#vista');
+    v.src = foto.url;
+    v.style.display = 'block';
+    $('#btn-enviar').hidden = false;
+    $('#btn-camara').textContent = 'Hacer otra foto';
+    estado('');
+  } catch {
+    estado('No se pudo leer esa foto. Prueba con otra.', true);
+  }
+}
+
+// ---------- Subir ----------
+function aBase64(blob) {
+  return new Promise((ok, ko) => {
+    const r = new FileReader();
+    r.onload = () => ok(String(r.result).split(',')[1]);
+    r.onerror = () => ko(new Error('No se pudo leer la foto'));
+    r.readAsDataURL(blob);
+  });
+}
+
+async function subir(datos, intentos = 3) {
+  if (modoPrueba) { await new Promise(r => setTimeout(r, 900)); return; }
+  let ultimo;
+  for (let i = 0; i < intentos; i++) {
+    try {
+      // text/plain evita la comprobación previa (CORS) que Apps Script no admite
+      const r = await fetch(CONFIG.APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(datos)
+      });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || 'Error al guardar');
+      return;
+    } catch (e) {
+      ultimo = e;
+      await new Promise(r => setTimeout(r, 1200 * (i + 1)));
+    }
+  }
+  throw ultimo;
+}
+
+$('#btn-enviar').addEventListener('click', async () => {
+  if (!foto || !actual) return;
+  const boton = $('#btn-enviar');
+  boton.disabled = true;
+  estado('Subiendo la foto…');
+  try {
+    const imagen = await aBase64(foto.blob);
+    await subir({ reto: actual.titulo, invitado: $('#nombre').value.trim(), imagen });
+    hechos[actual.titulo] = foto.thumb;
+    lsSet('hechos', hechos);
+    pintar();
+    estado('¡Foto enviada! Gracias.');
+    setTimeout(() => dlg.close(), 1300);
+  } catch {
+    estado('No se pudo subir. Revisa la conexión y pulsa Enviar foto otra vez.', true);
+    boton.disabled = false;
+  }
+});
+
+// ---------- Arranque ----------
+(async () => {
+  retos = await cargarRetos();
+  pintar();
+})();
+</script>
+</body>
+</html>
